@@ -166,7 +166,7 @@ function Dashboard() {
       <div className="mb-6">
         <h1 className="text-2xl font-semibold">My Account</h1>
         <p className="text-muted-foreground">
-          Welcome back, {user?.name || 'Guest'}
+          Welcome back, {user?.fullName || 'Guest'}
         </p>
       </div>
 

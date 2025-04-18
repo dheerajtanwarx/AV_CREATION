@@ -34,11 +34,16 @@ export default function RequireAuth({ children, requireAdmin = false }: RequireA
           }
           
           if (data.session) {
-            setUser({
-              id: data.session.user.id,
-              email: data.session.user.email,
-              role: data.session.user.email?.includes("admin") ? "admin" : "user",
-            });
+            const storedUser = localStorage.getItem("user");
+            if (storedUser) {
+              setUser(JSON.parse(storedUser));
+            } else {
+              setUser({
+                id: data.session.user.id,
+                email: data.session.user.email,
+                role: "user",
+              });
+            }
           }
           
           setIsLoading(false);

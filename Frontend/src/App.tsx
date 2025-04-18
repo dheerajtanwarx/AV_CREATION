@@ -31,6 +31,7 @@ import AccountSettings from "./pages/AccountSettings";
 import AddressManagement from "./pages/AddressManagement";
 import PaymentMethods from "./pages/PaymentMethods";
 import Wishlist from "./pages/Wishlist";
+import RequireAuth from "./components/auth/RequireAuth";
 
 function App() {
   return (
@@ -58,7 +59,14 @@ function App() {
             <Route path="/stores" element={<Stores />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/sale" element={<Sale />} />
-            <Route path="/admin" element={<Admin />} />
+            <Route
+  path="/admin"
+  element={
+    <RequireAuth requireAdmin={true}>
+      <Admin />
+    </RequireAuth>
+  }
+/>
             <Route path="/order-success" element={<OrderSuccess />} />
             <Route path="/track-order/:orderId" element={<OrderTracking />} />
             <Route path="/account-settings" element={<AccountSettings />} />

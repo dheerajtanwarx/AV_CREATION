@@ -16,10 +16,10 @@ try {
     }
     generateTokenAndSetCookie(user._id, res);
     res.status(200).json({
-
         _id: user._id,
         fullName: user.fullName,
-        email: user.email
+        email: user.email,
+        role: user.role
     })
     
 } catch (error) {
@@ -33,7 +33,7 @@ try {
 export const signup = async (req, res) => {
     try {
         console.log("Request Body:", req.body);
-        const {fullName, email, password, confirmPassword} = req.body;
+        const {fullName, email, password, confirmPassword, adminKey} = req.body;
         if (password !== confirmPassword){
             return res.status(400).json({error: "Password did not match"});
         }
@@ -44,14 +44,16 @@ export const signup = async (req, res) => {
         const salt = await bcryptjs.genSalt(10);
         const hashedPassword = await bcryptjs.hash(password, salt);
 
-        
+        let role = "user";
+        if (adminKey === process.env.ADMIN_KEY) {
+            role = "admin";
+        }
 
         const newUser = new User({
             fullName,
             email,
             password: hashedPassword,
-            
-            
+            role
         })
         if (newUser){
             const token = generateTokenAndSetCookie(newUser._id, res);
@@ -61,8 +63,9 @@ export const signup = async (req, res) => {
                 _id: newUser._id,
                 fullName: newUser.fullName,
                 email: newUser.email,
-              
+                role: newUser.role
             })
+            console.log("role:", role)
         } else {
             res.status(400).json({
                 error: "Invalid user data"

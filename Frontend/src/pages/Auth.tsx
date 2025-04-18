@@ -31,10 +31,7 @@ export default function Auth() {
                 Choose your account type and enter your credentials
               </CardDescription>
               <Tabs defaultValue="user" className="w-full" onValueChange={(value) => setUserType(value as "user" | "admin")}>
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="user">Customer</TabsTrigger>
-                  <TabsTrigger value="admin">Admin</TabsTrigger>
-                </TabsList>
+               
               </Tabs>
             </CardHeader>
             <CardContent>
