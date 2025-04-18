@@ -11,7 +11,7 @@ import protectRoute from "../middleware/protectRoute.js";
 const router = express.Router();
 
 // Create a new product
-router.post("/", protectRoute,createProduct);
+router.post("/",protectRoute, createProduct);
 
 // Get all products
 router.get("/", protectRoute, getAllProducts);

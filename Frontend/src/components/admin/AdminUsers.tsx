@@ -8,55 +8,18 @@ import { Search, Loader2, UserPlus, Shield, UserX } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize Supabase client with proper URL
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://jellthappcboftfvwyyy.supabase.co";
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
-const supabase = supabaseUrl && supabaseKey 
-  ? createClient(supabaseUrl, supabaseKey)
-  : null;
-
-// Mock users for development/preview
-const mockUsers = [
-  {
-    id: "user-1",
-    email: "admin@example.com",
-    role: "admin" as const,
-    created_at: "2023-01-15T10:00:00Z",
-    last_sign_in: "2023-09-20T14:30:00Z"
-  },
-  {
-    id: "user-2",
-    email: "user@example.com",
-    role: "user" as const,
-    created_at: "2023-02-20T09:15:00Z",
-    last_sign_in: "2023-09-18T11:45:00Z"
-  },
-  {
-    id: "user-3",
-    email: "manager@example.com",
-    role: "admin" as const,
-    created_at: "2023-03-10T14:20:00Z",
-    last_sign_in: "Never"
-  },
-  {
-    id: "user-4",
-    email: "customer@example.com",
-    role: "user" as const,
-    created_at: "2023-04-05T16:30:00Z",
-    last_sign_in: "2023-09-15T09:20:00Z"
-  }
-];
+import axios from "axios";
+import { Form } from "../ui/form";
 
 // User type
 type User = {
   id: string;
   email: string;
   role: 'user' | 'admin';
-  created_at: string;
+  createdAt: string;
   last_sign_in: string;
 };
+
 
 export default function AdminUsers() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -67,60 +30,44 @@ export default function AdminUsers() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const storedUser = localStorage.getItem('user');
+  const authUser = storedUser ? JSON.parse(storedUser) : null;
+  const [fullName, setFullName] = useState("")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
 
-  // Fetch users from Supabase or use mock data
+  const handleAddUser = async () => {
+    console.log("add user clicked");
+    const res = await axios.post("http://localhost:3000/api/auth/signup", {
+      fullName: fullName,
+      email: email,
+      password: password,
+      confirmPassword: confirmPassword
+    }, {
+      withCredentials: true
+    });
+
+    setIsDialogOpen(false);
+    window.location.reload();
+  };
+
+  // Fetch users from backend
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         setIsLoading(true);
-        
-        // Check if we're using the fallback URL/key
-        if (supabaseUrl === 'https://example.supabase.co') {
-          // Use mock data instead
-          console.log('Using mock users data');
-          setTimeout(() => {
-            setUsers(mockUsers);
-            setIsLoading(false);
-          }, 800); // Simulate network delay
-          return;
-        }
-        
-        // First get all users from auth.users
-        const { data: authUsers, error: authError } = await supabase
-          .from('auth.users')
-          .select('id, email, created_at, last_sign_in_at');
-        
-        if (authError) throw authError;
-        
-        // Then get roles from user_roles table
-        const { data: userRoles, error: rolesError } = await supabase
-          .from('user_roles')
-          .select('id, role');
-        
-        if (rolesError) throw rolesError;
-        
-        // Combine the data
-        const combinedUsers = authUsers.map(user => {
-          const roleInfo = userRoles.find(role => role.id === user.id);
-          return {
-            id: user.id,
-            email: user.email,
-            role: roleInfo ? roleInfo.role : 'user',
-            created_at: user.created_at,
-            last_sign_in: user.last_sign_in_at || 'Never'
-          };
+        const res = await axios.get("http://localhost:3000/users", {
+          headers: {
+            Authorization: `${authUser.jwt}`
+          },
+          withCredentials: true
         });
-        
-        setUsers(combinedUsers);
+        const data = res.data;
+        setUsers(data);
+        console.log(data)
       } catch (error) {
         console.error('Error fetching users:', error);
-        // Fallback to mock data
-        setUsers(mockUsers);
-        toast({
-          title: "Using demo data",
-          description: "Connected to demo mode since Supabase is not configured.",
-          variant: "default",
-        });
       } finally {
         setIsLoading(false);
       }
@@ -137,50 +84,10 @@ export default function AdminUsers() {
     try {
       setIsLoading(true);
       const newRole = currentRole === 'admin' ? 'user' : 'admin';
-      
-      // For demo mode, just update the local state
-      if (supabaseUrl === 'https://example.supabase.co') {
-        setUsers(users.map(user => 
-          user.id === userId ? { ...user, role: newRole as 'user' | 'admin' } : user
-        ));
-        
-        toast({
-          title: "Role updated",
-          description: `User is now ${newRole === 'admin' ? 'an admin' : 'a regular user'} (Demo Mode)`,
-        });
-        setIsLoading(false);
-        return;
-      }
-      
-      // Check if user exists in user_roles
-      const { data: existingRole } = await supabase
-        .from('user_roles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      
-      let result;
-      
-      if (existingRole) {
-        // Update existing role
-        result = await supabase
-          .from('user_roles')
-          .update({ role: newRole })
-          .eq('id', userId);
-      } else {
-        // Insert new role
-        result = await supabase
-          .from('user_roles')
-          .insert({ id: userId, role: newRole });
-      }
-      
-      if (result.error) throw result.error;
-      
-      // Update local state
-      setUsers(users.map(user => 
-        user.id === userId ? { ...user, role: newRole as 'user' | 'admin' } : user
-      ));
-      
+
+      await axios.post(`http://localhost:5000/api/users/${userId}/toggle-role`);
+      setUsers(users.map(user => user.id === userId ? { ...user, role: newRole as 'user' | 'admin' } : user));
+
       toast({
         title: "Role updated",
         description: `User is now ${newRole === 'admin' ? 'an admin' : 'a regular user'}`,
@@ -200,59 +107,22 @@ export default function AdminUsers() {
   const addNewUser = async () => {
     try {
       setIsSubmitting(true);
-      
-      // For demo mode, just add to the local state
-      if (supabaseUrl === 'https://example.supabase.co') {
-        const newUserId = `user-${users.length + 1}`;
-        const newUser: User = {
-          id: newUserId,
-          email: newUserEmail,
-          role: isAdmin ? 'admin' : 'user',
-          created_at: new Date().toISOString(),
-          last_sign_in: 'Never'
-        };
-        
-        setUsers([...users, newUser]);
-        
-        toast({
-          title: "User added (Demo Mode)",
-          description: `Added ${newUserEmail} as ${isAdmin ? 'an admin' : 'a user'}`,
-        });
-        
-        setNewUserEmail("");
-        setIsAdmin(false);
-        setIsDialogOpen(false);
-        setIsSubmitting(false);
-        return;
-      }
-      
-      // In a real application, you would likely:
-      // 1. Check if the user exists in auth
-      // 2. If not, invite them or create their account
-      // 3. Then set their role
-      
-      // For this demo, we'll simulate adding an existing user to user_roles
-      const { error } = await supabase
-        .from('user_roles')
-        .insert({ 
-          id: "simulate-user-id", // In a real app, this would be a real user ID
-          role: isAdmin ? 'admin' : 'user' 
-        });
-      
-      if (error) throw error;
-      
+
+      await axios.post("http://localhost:5000/api/users", {
+        email: newUserEmail,
+        role: isAdmin ? "admin" : "user"
+      });
+
       toast({
         title: "User added",
         description: `Successfully added ${newUserEmail} as ${isAdmin ? 'an admin' : 'a user'}`,
       });
-      
+
       // Reset form and close dialog
       setNewUserEmail("");
       setIsAdmin(false);
       setIsDialogOpen(false);
-      
-      // In a real app, you would refresh the user list here
-      
+
     } catch (error) {
       console.error('Error adding user:', error);
       toast({
@@ -290,40 +160,50 @@ export default function AdminUsers() {
                 <DialogTitle>Add New User</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="email" className="text-right">
-                    Email
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={newUserEmail}
-                    onChange={(e) => setNewUserEmail(e.target.value)}
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="isAdmin" className="text-right">
-                    Admin
-                  </Label>
-                  <div className="col-span-3">
-                    <Checkbox
-                      id="isAdmin"
-                      checked={isAdmin}
-                      onCheckedChange={(checked) => setIsAdmin(checked === true)}
-                    />
+                <div>
+                  <div>
+                    <h2 className="font-medium">Full Name</h2>
+                    <input onChange={(e) => setFullName(e.target.value)} type="text" placeholder="Your Name" className="border mt-2 mb-5 w-full p-2 bg-[#FCFAF8] rounded-sm" />
+                  </div>
+                  <div>
+                    <h2 className="font-medium">Email</h2>
+                    <input onChange={(e) => {
+                      setEmail(e.target.value);
+                    }} type="text" placeholder="your.email@example.com" className="border mt-2 mb-5 w-full p-2 bg-[#FCFAF8] rounded-sm" />
+                  </div>
+                  <div>
+                    <h2 className="font-medium">Password</h2>
+                    <input onChange={(e) => {
+                      setPassword(e.target.value);
+                    }} type="password" placeholder="••••••" className="border mt-2 w-full bg-[#FCFAF8] p-2 rounded-sm" />
+                  </div>
+                  <div>
+                    <h2 className="font-medium">Confirm Password</h2>
+                    <input onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                    }} type="password" placeholder="••••••" className="border mt-2 w-full bg-[#FCFAF8] p-2 rounded-sm" />
+                  </div>
+                  {/* <div>
+              <h2 className="font-medium">Admin Key (optional)</h2>
+              <input
+                onChange={(e) => setAdminKey(e.target.value)}
+                type="text"
+                placeholder="Enter Admin Key if applicable"
+                className="border mt-2 mb-5 w-full p-2 bg-[#FCFAF8] rounded-sm"
+              />
+            </div> */}
+                  <div>
+                    <button className="w-full mt-4 bg-[#A16E34] p-2 rounded-sm text-white" onClick={handleAddUser}>Add User</button>
                   </div>
                 </div>
+
+
+                <div className="grid grid-cols-4 items-center gap-4">
+
+
+                </div>
               </div>
-              <DialogFooter>
-                <Button type="submit" onClick={addNewUser} disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Adding...</>
-                  ) : (
-                    'Add User'
-                  )}
-                </Button>
-              </DialogFooter>
+
             </DialogContent>
           </Dialog>
         </div>
@@ -369,11 +249,11 @@ export default function AdminUsers() {
                       )}
                     </Badge>
                   </TableCell>
-                  <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
+                  <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
                   <TableCell>{user.last_sign_in === 'Never' ? 'Never' : new Date(user.last_sign_in).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={() => toggleAdminRole(user.id, user.role)}
                     >
@@ -389,15 +269,6 @@ export default function AdminUsers() {
             )}
           </TableBody>
         </Table>
-      </div>
-      
-      <div className="bg-amber-50 border border-amber-200 rounded-md p-4 text-amber-800 text-sm">
-        <p className="font-medium">Important: This is a demonstration interface</p>
-        <ul className="list-disc list-inside mt-2">
-          <li>In a production environment, you would need to implement proper authentication.</li>
-          <li>The "Add User" function currently simulates adding a user (will not work with actual data).</li>
-          <li>To fully implement this feature, connect with Supabase Auth and create proper user flows.</li>
-        </ul>
       </div>
     </div>
   );

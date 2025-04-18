@@ -6,6 +6,7 @@ import authRoutes from "./routes/authRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 
 import connectToMongoDB from "./db/connectToMongoDB.js";
+import userRouter from "./routes/userRoute.js";
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.get('/', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/product', productRoutes);
+app.use(userRouter)
 
 app.listen(3000, () => {
   connectToMongoDB();
