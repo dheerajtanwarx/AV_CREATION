@@ -3,7 +3,6 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { createClient } from '@supabase/supabase-js';
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -18,22 +17,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2, Image as ImageIcon, Upload } from "lucide-react";
+import axios from "axios";
+import { log } from "console";
+import { useRouter } from 'next/router';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://jellthappcboftfvwyyy.supabase.co";
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
-
-const supabase = supabaseUrl && supabaseKey 
-  ? createClient(supabaseUrl, supabaseKey)
-  : null;
 
 const productSchema = z.object({
-  name: z.string().min(3, { message: "Product name must be at least 3 characters" }),
-  sku: z.string().min(2, { message: "SKU must be at least 2 characters" }),
-  price: z.coerce.number().positive({ message: "Price must be a positive number" }),
-  stock: z.coerce.number().int({ message: "Stock must be a whole number" }).nonnegative({ message: "Stock cannot be negative" }),
-  category: z.string().min(1, { message: "Please select a category" }),
+  title: z.string().min(3, { message: "Product name must be at least 3 characters" }),
   description: z.string().optional(),
-  image: z.string().optional(),
+  price: z.coerce.number().positive({ message: "Price must be a positive number" }),
+  sizes: z.string().min(1, { message: "Enter size" }),
+  category: z.string().min(1, { message: "Please select a category" }),
+  images: z.string().optional(),
+  stock: z.coerce.number().int({ message: "Stock must be a whole number" }).nonnegative({ message: "Stock cannot be negative" }),
+  sku: z.string().min(2, { message: "SKU must be at least 2 characters" }),
+  tags: z.string().optional(),
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
@@ -46,20 +44,87 @@ export default function AddProductForm({ onSuccess }: AddProductFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [title, setTitle] = useState("")
+  const [description, setDescription] = useState("")
+  const [price, setPrice] = useState("")
+  const [sizes, setSizes] = useState("")
+  const [category, setCategory] = useState("")
+  const [images, setImages] = useState("")
+  const [stock, setStock] = useState("")
+  const [sku, setSku] = useState("")
+  const [tags, setTags] = useState("")
+  const storedUser = localStorage.getItem('user')
+  const authUser = storedUser ? JSON.parse(storedUser) : null;
   const { toast } = useToast();
 
-  const form = useForm<ProductFormValues>({
-    resolver: zodResolver(productSchema),
-    defaultValues: {
-      name: "",
-      sku: "",
-      price: 0,
-      stock: 0,
-      category: "",
-      description: "",
-      image: "",
-    },
-  });
+  // const form = useForm<ProductFormValues>({
+  //   resolver: zodResolver(productSchema),
+  //   defaultValues: {
+  //     title: "",
+  //     description: "",
+  //     price: 0,
+  //     sizes: "",
+  //     category: "",
+  //     images: "",
+  //     stock: 0,
+  //     sku: "",
+  //     tags: "",
+  //   },
+ // });
+  async function handleAddProduct() {
+    setIsSubmitting(true);
+    try {
+      const res = await axios.post(
+        "http://localhost:3000/api/product",
+        {
+          title,
+          description,
+          price,
+          sizes,
+          category,
+          images,
+          stock,
+          sku,
+          tags
+        },
+        {
+          headers: {
+            Authorization: `${authUser.jwt}`
+          }
+        }
+      );
+
+      toast({
+        title: "Product Added",
+        description: `Successfully added "${title}"`,
+      });
+
+
+      setTitle("");
+      setDescription("");
+      setPrice("");
+      setSizes("");
+      setCategory("");
+      setImages("");
+      setStock("");
+      setSku("");
+      setTags("");
+      setImagePreview(null);
+      setImageFile(null);
+
+      if (onSuccess) onSuccess();
+
+    } catch (error) {
+      console.error("Error adding product:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add product.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -67,78 +132,31 @@ export default function AddProductForm({ onSuccess }: AddProductFormProps) {
       setImageFile(file);
       const imageUrl = URL.createObjectURL(file);
       setImagePreview(imageUrl);
-      form.setValue("image", file.name); // Set the filename as a placeholder
+       // Set the filename as a placeholder
     }
   };
 
   const onSubmit = async (data: ProductFormValues) => {
     try {
       setIsSubmitting(true);
-      
-      let imageUrl = data.image;
-      
-      // Upload image if we have a file
-      if (imageFile) {
-        if (supabase) {
-          const fileExt = imageFile.name.split('.').pop();
-          const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-          
-          // For demo, just simulate upload delay
-          if (supabaseUrl === "https://jellthappcboftfvwyyy.supabase.co") {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            imageUrl = imagePreview; // Use the preview as the URL in demo mode
-          } else {
-            // Upload to Supabase Storage in real implementation
-            const { data: uploadData, error } = await supabase
-              .storage
-              .from('products')
-              .upload(`images/${fileName}`, imageFile);
-            
-            if (error) throw error;
-            
-            // Get public URL
-            const { data: { publicUrl } } = supabase
-              .storage
-              .from('products')
-              .getPublicUrl(`images/${fileName}`);
-              
-            imageUrl = publicUrl;
-          }
-        } else {
-          // Fallback for demo
-          imageUrl = imagePreview;
-        }
-      }
-      
-      // Now save the product with image URL
+      // Prepare product data
       const productData = {
         ...data,
-        image: imageUrl
+        image: imagePreview || "",
       };
-      
-      // For demo, just simulate saving
-      if (supabaseUrl === "https://jellthappcboftfvwyyy.supabase.co") {
-        await new Promise(resolve => setTimeout(resolve, 800));
-      } else {
-        // Save to Supabase
-        const { error } = await supabase
-          .from('products')
-          .insert([productData]);
-        
-        if (error) throw error;
-      }
-      
+      // Optionally log the product data
+      console.log("Product to save:", productData);
+
       toast({
         title: "Product added",
-        description: `Successfully added ${data.name}`,
+        description: `Successfully added ${data.title}`,
       });
-      
-      form.reset();
+
+     
       setImagePreview(null);
       setImageFile(null);
-      
+
       if (onSuccess) onSuccess();
-      
     } catch (error) {
       console.error('Error adding product:', error);
       toast({
@@ -152,160 +170,87 @@ export default function AddProductForm({ onSuccess }: AddProductFormProps) {
   };
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Product Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="Royal Bridal Lehenga" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          
-          <FormField
-            control={form.control}
-            name="sku"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>SKU</FormLabel>
-                <FormControl>
-                  <Input placeholder="BL-001" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          
-          <FormField
-            control={form.control}
-            name="price"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Price (₹)</FormLabel>
-                <FormControl>
-                  <Input type="number" placeholder="25000" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          
-          <FormField
-            control={form.control}
-            name="stock"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Stock Quantity</FormLabel>
-                <FormControl>
-                  <Input type="number" placeholder="10" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          
-          <FormField
-            control={form.control}
-            name="category"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Category</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a category" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="Bridal">Bridal</SelectItem>
-                    <SelectItem value="Party Wear">Party Wear</SelectItem>
-                    <SelectItem value="Traditional">Traditional</SelectItem>
-                    <SelectItem value="Casual">Casual</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          
-          <FormField
-            control={form.control}
-            name="image"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Product Image</FormLabel>
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Input 
-                      {...field}
-                      placeholder="Image URL or upload" 
-                      className="flex-1"
-                    />
-                    <div className="relative">
-                      <Input
-                        type="file"
-                        id="image-upload"
-                        accept="image/*"
-                        className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                        onChange={handleImageChange}
-                      />
-                      <Button type="button" variant="outline" size="icon" className="h-10 w-10">
-                        <Upload className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  {imagePreview && (
-                    <div className="relative border rounded-md overflow-hidden h-40">
-                      <ImageIcon className="h-8 w-8 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-muted-foreground" />
-                      <img 
-                        src={imagePreview} 
-                        alt="Product preview" 
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                  )}
-                </div>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+    <div className="max-h-[80vh] overflow-y-auto px-4">
+    
         
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Description</FormLabel>
-              <FormControl>
-                <Textarea placeholder="Product description..." className="min-h-[100px]" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6" />
+
+          <div>
+            <h2 className="font-medium">Title</h2>
+            <input onChange={(e) => {
+              setTitle(e.target.value);
+            }} type="text" placeholder="Product Name" className="border mt-2 mb-5 w-full p-2 bg-[#FCFAF8] rounded-sm" />
+          </div>
+          <div>
+            <h2 className="font-medium">Description</h2>
+            <input onChange={(e) => {
+              setDescription(e.target.value);
+            }} type="text" placeholder="Product Description" className="border mt-2 mb-5 w-full p-2 bg-[#FCFAF8] rounded-sm" />
+          </div>
+          <div>
+            <h2 className="font-medium">Price</h2>
+            <input onChange={(e) => {
+              setPrice(e.target.value);
+            }} type="number" placeholder="Product Price" className="border mt-2 mb-5 w-full p-2 bg-[#FCFAF8] rounded-sm" />
+          </div>
+          <div>
+            <h2 className="font-medium">Size</h2>
+            <input onChange={(e) => {
+              setSizes(e.target.value);
+            }} type="text" placeholder="Product Size" className="border mt-2 mb-5 w-full p-2 bg-[#FCFAF8] rounded-sm" />
+          </div>
+          <div>
+            <h2 className="font-medium">Category</h2>
+            <Select onValueChange={(value) => setCategory(value)}>
+              <SelectTrigger className="border mt-2 mb-5 w-full p-2 bg-[#FCFAF8] rounded-sm">
+                <SelectValue placeholder="Select a category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Bridal">Bridal</SelectItem>
+                <SelectItem value="Party Wear">Party Wear</SelectItem>
+                <SelectItem value="Traditional">Traditional</SelectItem>
+                <SelectItem value="Casual">Casual</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <h2 className="font-medium">Images</h2>
+            <input onChange={(e) => {
+              setImages(e.target.value);
+            }} type="text" placeholder="Image URL" className="border mt-2 mb-5 w-full p-2 bg-[#FCFAF8] rounded-sm" />
+          </div>
+          <div>
+            <h2 className="font-medium">SKU</h2>
+            <input onChange={(e) => {
+              setSku(e.target.value);
+            }} type="text" placeholder="SKU" className="border mt-2 mb-5 w-full p-2 bg-[#FCFAF8] rounded-sm" />
+          </div>
+          <div>
+            <h2 className="font-medium">Stock</h2>
+            <input onChange={(e) => {
+              setStock(e.target.value);
+            }} type="number" placeholder="Set Stock" className="border mt-2 mb-5 w-full p-2 bg-[#FCFAF8] rounded-sm" />
+          </div>
+
+
+
+
+
+
+          <div className="flex justify-end gap-4">
+            <Button type="button" variant="outline" onClick={() => onSuccess && onSuccess()}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddProduct} disabled={isSubmitting}>
+              {isSubmitting ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
+              ) : (
+                'Add Product'
+              )}
+            </Button>
+          </div>
         
-        <div className="flex justify-end gap-4">
-          <Button type="button" variant="outline" onClick={() => onSuccess && onSuccess()}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
-            ) : (
-              'Add Product'
-            )}
-          </Button>
-        </div>
-      </form>
-    </Form>
+
+    </div>
   );
 }

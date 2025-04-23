@@ -15,22 +15,38 @@ import { Shield, Plus, Menu } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import RequireAuth from "@/components/auth/RequireAuth";
+import axios from "axios";
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [title, setTitle] = useState("")
+  const [description, setDescription] = useState("")
+  const [price, setPrice] = useState(0)
+  const [sizes, setSizes] = useState("")
+  const [category, setCategory] = useState("")
+  const [images, setImages] = useState("")
+  const [stock, setStock] = useState(0)
+  const [sku, setSku] = useState("")
+  const [tags, setTags] = useState("")
+  const storedUser = localStorage.getItem('user')
+const authUser = storedUser ? JSON.parse(storedUser) : null;
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     setIsMobileMenuOpen(false);
   };
 
+
+
+
   return (
     <RequireAuth requireAdmin={true}>
       <div className="min-h-screen flex flex-col">
         <Navbar />
-        <div className="flex-1 container mx-auto px-4 py-16 md:py-24">
+        <div className="flex-1 overflow-y-auto">
+          <div className="container mx-auto px-4 py-16 md:py-24">
           <div className="flex items-center justify-between gap-4 mb-8">
             <div className="flex items-center gap-2">
               <Shield className="h-6 w-6 md:h-8 md:w-8 text-primary" />
@@ -141,7 +157,8 @@ export default function Admin() {
             </TabsContent>
           </Tabs>
         </div>
-        <Footer />
+      </div>
+      <Footer />
       </div>
     </RequireAuth>
   );

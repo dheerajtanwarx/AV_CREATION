@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 
+
 const productSchema = new mongoose.Schema({
     title:{
         type: String,
@@ -16,14 +17,24 @@ const productSchema = new mongoose.Schema({
         type: String,
     },
     category:{
+        //isko sagi karna hai kyu ki hume category ko dynamically set krna hai
         type: mongoose.Schema.Types.ObjectId,
         ref: "Category"
+        // type: String,
+        // required: true
+
     },
     images: [String],
     stock:{
         type: Number,
         default: 0
-    }
+    },
+    sku: {
+        type: String,
+    },
+    tags: [String]
 }, {timestamps: true});
 
-export default mongoose.model("Product", productSchema);
+const Product =  mongoose.model("Product", productSchema);
+
+export default Product

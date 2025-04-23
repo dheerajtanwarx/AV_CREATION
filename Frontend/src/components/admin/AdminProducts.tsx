@@ -7,58 +7,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Edit, Trash2, Search, Loader2, AlertTriangle, Tag } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { createClient } from '@supabase/supabase-js';
+ 
 import EditProductForm from "./EditProductForm";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import axios from "axios";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://jellthappcboftfvwyyy.supabase.co";
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
-const supabase = supabaseUrl && supabaseKey 
-  ? createClient(supabaseUrl, supabaseKey)
-  : null;
+ 
 
-const mockProducts = [
-  {
-    id: 1,
-    name: "Embroidered Silk Saree",
-    sku: "SAR-001",
-    price: 4999,
-    stock: 12,
-    category: "Bridal",
-    status: "In Stock",
-    tags: ["silk", "embroidered", "bridal", "wedding"]
-  },
-  {
-    id: 2,
-    name: "Designer Lehenga",
-    sku: "LEH-002",
-    price: 8999,
-    stock: 5,
-    category: "Party Wear",
-    status: "In Stock",
-    tags: ["lehenga", "designer", "party", "festive"]
-  },
-  {
-    id: 3,
-    name: "Cotton Kurta Set",
-    sku: "KUR-003",
-    price: 1999,
-    stock: 20,
-    category: "Casual",
-    status: "In Stock",
-    tags: ["cotton", "kurta", "casual", "daily wear"]
-  },
-  {
-    id: 4,
-    name: "Traditional Banarasi Saree",
-    sku: "SAR-004",
-    price: 5999,
-    stock: 0,
-    category: "Traditional",
-    status: "Out of Stock",
-    tags: ["banarasi", "traditional", "saree", "wedding"]
-  }
-];
+ 
 
 type Product = {
   id: number;
@@ -82,33 +38,25 @@ export default function AdminProducts() {
   const [deleteProductId, setDeleteProductId] = useState<number | null>(null);
   const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
   const { toast } = useToast();
-
+const storedUser = localStorage.getItem('user')
+const authUser = storedUser ? JSON.parse(storedUser) : null;
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         setIsLoading(true);
         
-        if (supabaseUrl === 'https://jellthappcboftfvwyyy.supabase.co') {
-          console.log('Using mock products data');
-          setTimeout(() => {
-            setProducts(mockProducts);
-            setIsLoading(false);
-          }, 800);
-          return;
-        }
-        
-        const { data, error } = await supabase
-          .from('products')
-          .select('*');
-        
-        if (error) {
-          throw error;
-        }
-        
-        if (data) {
-          const formattedProducts: Product[] = data.map(item => ({
-            id: item.id,
-            name: item.name,
+        const res = await axios.get("http://localhost:3000/api/product", {
+          headers: {
+            Authorization: `${authUser.jwt}`
+          },
+          withCredentials: true
+        });
+          
+          const data = res.data;
+          console.log(data)
+          const formattedProducts: Product[] = data.map((item: any) => ({
+            id: item._id,
+            name: item.title,
             sku: item.sku || '',
             price: item.price,
             stock: item.stock || 0,
@@ -116,15 +64,14 @@ export default function AdminProducts() {
             status: item.stock > 0 ? 'In Stock' : 'Out of Stock',
             tags: item.tags || []
           }));
+          
           setProducts(formattedProducts);
-        }
       } catch (error) {
         console.error('Error fetching products:', error);
-        setProducts(mockProducts);
         toast({
-          title: "Using demo data",
-          description: "Connected to demo mode since Supabase is not configured.",
-          variant: "default",
+          title: "Error fetching products",
+          description: "There was a problem fetching the products.",
+          variant: "destructive",
         });
       } finally {
         setIsLoading(false);
@@ -136,7 +83,7 @@ export default function AdminProducts() {
 
   const filteredProducts = products.filter(
     product => 
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (product.name ?? "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (product.tags && product.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())))
@@ -182,37 +129,12 @@ export default function AdminProducts() {
       
       if (idsToDelete.length === 0) return;
       
-      if (supabaseUrl === "https://jellthappcboftfvwyyy.supabase.co") {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        setProducts(products.filter(product => !idsToDelete.includes(product.id)));
-        setSelectedProducts([]);
-        
-        toast({
-          title: "Products deleted",
-          description: `Successfully deleted ${idsToDelete.length} product(s) (Demo Mode)`,
-        });
-        
-        setIsDeleteDialogOpen(false);
-        setIsLoading(false);
-        return;
-      }
-      
       if (!isDeletingMultiple && deleteProductId) {
-        const { error } = await supabase
-          .from('products')
-          .delete()
-          .eq('id', deleteProductId);
-        
-        if (error) throw error;
-      } 
-      else if (isDeletingMultiple) {
-        const { error } = await supabase
-          .from('products')
-          .delete()
-          .in('id', selectedProducts);
-        
-        if (error) throw error;
+        await axios.delete(`http://localhost:3000/api/products/${deleteProductId}`);
+      } else if (isDeletingMultiple) {
+        await axios.post("http://localhost:3000/api/products/bulk-delete", {
+          ids: selectedProducts
+        });
       }
       
       setProducts(products.filter(product => !idsToDelete.includes(product.id)));
@@ -241,36 +163,27 @@ export default function AdminProducts() {
     const fetchProducts = async () => {
       try {
         setIsLoading(true);
+        const res = await axios.get("http://localhost:3000/api/products");
+        const data = res.data;
         
-        if (supabaseUrl === "https://jellthappcboftfvwyyy.supabase.co") {
-          await new Promise(resolve => setTimeout(resolve, 800));
-          setProducts(mockProducts);
-          setIsLoading(false);
-          return;
-        }
-        
-        const { data, error } = await supabase
-          .from('products')
-          .select('*');
-        
-        if (error) throw error;
-        
-        if (data) {
-          const formattedProducts: Product[] = data.map(item => ({
-            id: item.id,
-            name: item.name,
-            sku: item.sku || '',
-            price: item.price,
-            stock: item.stock || 0,
-            category: item.category || '',
-            status: item.stock > 0 ? 'In Stock' : 'Out of Stock',
-            tags: item.tags || []
-          }));
-          setProducts(formattedProducts);
-        }
+        const formattedProducts: Product[] = data.map((item: any) => ({
+          id: item._id,
+          name: item.title,
+          sku: item.sku || '',
+          price: item.price,
+          stock: item.stock || 0,
+          category: item.category || '',
+          status: item.stock > 0 ? 'In Stock' : 'Out of Stock',
+          tags: item.tags || []
+        }));
+        setProducts(formattedProducts);
       } catch (error) {
         console.error('Error fetching products:', error);
-        setProducts(mockProducts);
+        toast({
+          title: "Error fetching products",
+          description: "There was a problem fetching the products.",
+          variant: "destructive",
+        });
       } finally {
         setIsLoading(false);
       }

@@ -85,7 +85,7 @@ export default function AdminUsers() {
       setIsLoading(true);
       const newRole = currentRole === 'admin' ? 'user' : 'admin';
 
-      await axios.post(`http://localhost:5000/api/users/${userId}/toggle-role`);
+      await axios.post(`http://localhost:3000/api/users/${userId}/toggle-role`);
       setUsers(users.map(user => user.id === userId ? { ...user, role: newRole as 'user' | 'admin' } : user));
 
       toast({
@@ -108,7 +108,7 @@ export default function AdminUsers() {
     try {
       setIsSubmitting(true);
 
-      await axios.post("http://localhost:5000/api/users", {
+      await axios.post("http://localhost:3000/api/users", {
         email: newUserEmail,
         role: isAdmin ? "admin" : "user"
       });

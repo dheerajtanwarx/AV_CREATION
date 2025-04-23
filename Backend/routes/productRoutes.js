@@ -11,18 +11,18 @@ import protectRoute from "../middleware/protectRoute.js";
 const router = express.Router();
 
 // Create a new product
-router.post("/",protectRoute, createProduct);
+router.post("/", createProduct);
 
 // Get all products
-router.get("/", protectRoute, getAllProducts);
+router.get("/",  getAllProducts);
 
 // Get product by ID
-router.get("/:id",protectRoute, getProductById);
+router.get("/:id", getProductById);
 
 // Update product by ID
-router.put("/:id", protectRoute, updateProduct);
+router.put("/:id",  updateProduct);
 
 // Delete product by ID
-router.delete("/:id",protectRoute, deleteProduct);
+router.delete("/:id", deleteProduct);
 
 export default router;

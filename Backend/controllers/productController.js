@@ -1,6 +1,7 @@
 import Product from "../models/Product.js"
 
 
+
 // Create a new product
 export const createProduct = async (req, res) => {
     try {
@@ -11,13 +12,16 @@ export const createProduct = async (req, res) => {
             sizes,
             category,
             images,
+            sku,
             stock
         } = req.body;
-
+        
+console.log("title:",title,"price:",price,"category:",category)
         // Check for required fields
         if (!title || !price || !category) {
             return res.status(400).json({ error: "Title, price, and category are required." });
         }
+
 
         const newProduct = new Product({
             title,
@@ -26,8 +30,10 @@ export const createProduct = async (req, res) => {
             sizes,
             category,
             images,
+            sku,
             stock
         });
+console.log("NEW PRODUCT:",newProduct);
 
         const savedProduct = await newProduct.save();
         res.status(201).json(savedProduct);
@@ -40,7 +46,7 @@ export const createProduct = async (req, res) => {
 // Get all products
 export const getAllProducts = async (req, res) => {
     try {
-        const products = await Product.find().populate("category");
+        const products = await Product.find();
         res.status(200).json(products || "khali hai ");
     } catch (error) {
         console.error("Error fetching products:", error);
