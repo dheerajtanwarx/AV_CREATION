@@ -1,3 +1,4 @@
+import Category from "../models/Category.js";
 import Product from "../models/Product.js"
 
 
@@ -22,13 +23,13 @@ console.log("title:",title,"price:",price,"category:",category)
             return res.status(400).json({ error: "Title, price, and category are required." });
         }
 
-
+const findingCategory = await Category.findOne({name:category})
         const newProduct = new Product({
             title,
             description,
             price,
             sizes,
-            category,
+            category:findingCategory._id,
             images,
             sku,
             stock
@@ -42,6 +43,38 @@ console.log("NEW PRODUCT:",newProduct);
         res.status(500).json({ error: "Failed to create product" });
     }
 };
+
+
+export const createCategory = async(req, res)=>{
+    try {
+const {
+name,
+description
+        } = req.body
+
+        console.log("name:", name, "description:", description);
+        if(!name || !description){
+            return res.status(400).json({error:"name and description are required"})
+        }
+        const isExisted = Category.findOne({
+            name:name
+        })
+if(isExisted){
+    return res.status(400).json({error:"category already existed"})
+}
+
+const category = new Category({
+    name,
+    description
+})
+await category.save()
+res.status(200).json({msg:"category successfully created"})
+
+    } catch (error) {
+        console.log("error in createCategory:", error)
+        res.status(500).json({ error: "Failed to create Category" });
+    }
+}
 
 // Get all products
 export const getAllProducts = async (req, res) => {
